@@ -1,0 +1,58 @@
+(rail) (base) joeld@e974e2104ed3:~/railway-defect-dataset/railways$ python train.py --data_root . --epochs 80 --patience 12 --batch 16
+[INFO] device=cuda  img_size=64
+[INFO] train=300 val=62 test=22 classes=['defective', 'non-defective']
+[INFO] RailNet params=83,466
+[ep 01] val_acc=0.500 prec=0.000 rec=0.000 bal_acc=0.500 (patience 0/12)  <-- best
+[ep 02] val_acc=0.516 prec=0.508 rec=1.000 bal_acc=0.516 (patience 0/12)  <-- best
+[ep 03] val_acc=0.661 prec=0.614 rec=0.871 bal_acc=0.661 (patience 0/12)  <-- best
+[ep 04] val_acc=0.758 prec=0.735 rec=0.806 bal_acc=0.758 (patience 0/12)  <-- best
+[ep 05] val_acc=0.806 prec=0.806 rec=0.806 bal_acc=0.806 (patience 0/12)  <-- best
+[ep 06] val_acc=0.629 prec=0.574 rec=1.000 bal_acc=0.629 (patience 1/12)
+[ep 07] val_acc=0.806 prec=0.913 rec=0.677 bal_acc=0.806 (patience 2/12)
+[ep 08] val_acc=0.710 prec=0.651 rec=0.903 bal_acc=0.710 (patience 3/12)
+[ep 09] val_acc=0.710 prec=0.644 rec=0.935 bal_acc=0.710 (patience 4/12)
+[ep 10] val_acc=0.823 prec=0.917 rec=0.710 bal_acc=0.823 (patience 0/12)  <-- best
+[ep 11] val_acc=0.710 prec=0.651 rec=0.903 bal_acc=0.710 (patience 1/12)
+[ep 12] val_acc=0.839 prec=0.889 rec=0.774 bal_acc=0.839 (patience 0/12)  <-- best
+[ep 13] val_acc=0.742 prec=0.703 rec=0.839 bal_acc=0.742 (patience 1/12)
+[ep 14] val_acc=0.645 prec=0.596 rec=0.903 bal_acc=0.645 (patience 2/12)
+[ep 15] val_acc=0.694 prec=0.643 rec=0.871 bal_acc=0.694 (patience 3/12)
+[ep 16] val_acc=0.790 prec=0.750 rec=0.871 bal_acc=0.790 (patience 4/12)
+[ep 17] val_acc=0.790 prec=0.909 rec=0.645 bal_acc=0.790 (patience 5/12)
+[ep 18] val_acc=0.774 prec=0.707 rec=0.935 bal_acc=0.774 (patience 6/12)
+[ep 19] val_acc=0.855 prec=0.893 rec=0.806 bal_acc=0.855 (patience 0/12)  <-- best
+[ep 20] val_acc=0.855 prec=0.806 rec=0.935 bal_acc=0.855 (patience 1/12)
+[ep 21] val_acc=0.823 prec=0.885 rec=0.742 bal_acc=0.823 (patience 2/12)
+[ep 22] val_acc=0.806 prec=0.771 rec=0.871 bal_acc=0.806 (patience 3/12)
+[ep 23] val_acc=0.790 prec=0.737 rec=0.903 bal_acc=0.790 (patience 4/12)
+[ep 24] val_acc=0.661 prec=0.596 rec=1.000 bal_acc=0.661 (patience 5/12)
+[ep 25] val_acc=0.806 prec=0.757 rec=0.903 bal_acc=0.806 (patience 6/12)
+[ep 26] val_acc=0.855 prec=0.923 rec=0.774 bal_acc=0.855 (patience 7/12)
+[ep 27] val_acc=0.694 prec=0.630 rec=0.935 bal_acc=0.694 (patience 8/12)
+[ep 28] val_acc=0.694 prec=0.658 rec=0.806 bal_acc=0.694 (patience 9/12)
+[ep 29] val_acc=0.613 prec=0.566 rec=0.968 bal_acc=0.613 (patience 10/12)
+[ep 30] val_acc=0.839 prec=0.862 rec=0.806 bal_acc=0.839 (patience 11/12)
+[ep 31] val_acc=0.790 prec=0.725 rec=0.935 bal_acc=0.790 (patience 12/12)
+[INFO] Early stopping at epoch 31. Best bal_acc=0.855
+
+[FP32 TEST] acc=0.773 precision(defective)=0.875 recall(defective)=0.636
+[INFO] Wrote 64 calibration images -> calib/
+
+[HW-CHECK] verifying every layer against the accelerator RTL:
+  L0: Cin=  3 Cout= 32 64x64->32x32 mac= 27 qscale=42623 qshift=22 out=32768  OK
+  L1: Cin= 32 Cout= 32 32x32->32x32 mac=288 qscale=54143 qshift=25 out=32768  OK
+  L2: Cin= 32 Cout= 56 16x16->16x16 mac=288 qscale=39329 qshift=25 out=14336  OK
+  L3: Cin= 56 Cout= 56 8x8->8x8 mac=504 qscale=50048 qshift=26 out= 3584  OK
+  L4: Cin= 56 Cout= 56 4x4->4x4 mac=504 qscale=59331 qshift=26 out=  896  OK
+  ==> ALL CONSTRAINTS SATISFIED
+[INT8 TEST] acc=0.773  (simulated integer datapath)
+[INFO] Wrote 4 test .bin images -> model/test_bins/ (uint8 HWC 64x64x3)
+
+[VERIFY] Expected predictions per exported .bin (use these to check the FPGA):
+  sample_0: true=defective     pred=non-defective logits=[[-0.10999999940395355, 0.8220000267028809]]
+  sample_1: true=defective     pred=defective     logits=[[2.3380000591278076, -1.8860000371932983]]
+  sample_2: true=non-defective pred=non-defective logits=[[0.21699999272823334, 0.44600000977516174]]
+  sample_3: true=non-defective pred=non-defective logits=[[-1.031000018119812, 1.9850000143051147]]
+
+[DONE] Exported to 'model/':  weights.bin  biases.bin  model_arch.h  model_int8.pt  test_bins/
+

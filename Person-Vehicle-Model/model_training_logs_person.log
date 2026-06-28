@@ -1,0 +1,225 @@
+(rail) joeld@e974e2104ed3:~/aerial-dataset/RoadVehiclesYOLODatasetPro$ python new_train.py --resume_fp32 model/model_biasfree_fp32.pt
+[INFO] device=cuda canvas=384 tile=64 grid=16 stride=4 feat_ch=64
+[INFO] train=21120 val=4000 (carved from train/)
+[INFO] class counts {'small-vehicle': 49202, 'large-vehicle': 5776, 'human': 15513}  weights=[0.53, 1.54, 0.94]
+[INFO] DetNet params=125,240  layers=8  head=8x64  crops/img=2
+[INFO] resume_fp32: loading FP32 weights from model/model_biasfree_fp32.pt (SKIP training)
+/home/joeld/aerial-dataset/RoadVehiclesYOLODatasetPro/new_train.py:1212: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  model.load_state_dict(torch.load(cfg["resume_fp32"], map_location=dev))
+[INFO] loaded FP32 model val_mAP=0.0000 (sanity check)
+
+[HW-CHECK] every layer vs the accelerator RTL (host bank limit = 16384 B/tensor):
+  L0: Cin=  3 Cout= 16 64x64->32x32 mac= 27 q=61345>>23 in=12288 out=16384 OK
+  L1: Cin= 16 Cout= 48 32x32->16x16 mac=144 q=55903>>22 in=16384 out=12288 OK
+  L2: Cin= 48 Cout= 56 16x16->16x16 mac=432 q=45366>>23 in=12288 out=14336 OK
+  L3: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=56263>>24 in=14336 out=14336 OK
+  L4: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=51337>>24 in=14336 out=14336 OK
+  L5: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=45568>>25 in=14336 out=14336 OK
+  L6: Cin= 56 Cout= 64 16x16->16x16 mac= 56 q=35981>>22 in=14336 out=16384 OK
+  L7: Cin= 64 Cout= 64 16x16->16x16 mac= 64 q=60142>>23 in=16384 out=16384 OK
+  ==> ALL CONSTRAINTS SATISFIED
+[INFO] evaluating mAP@0.5 on 400 val images (decode thr=0.01) ...
+
+[FP32 mAP@0.5] 0.0000
+    small-vehicle  AP=0.0000  (gt=5680, det=13542)
+    large-vehicle  AP=0.0000  (gt=644, det=1131)
+    human          AP=0.0000  (gt=2336, det=3124)
+
+[INT8 (pure PTQ) mAP@0.5] 0.0065
+    small-vehicle  AP=0.0094  (gt=5680, det=90776)
+    large-vehicle  AP=0.0034  (gt=644, det=2145)
+    human          AP=0.0066  (gt=2336, det=15388)
+   (INT8 is exactly what the FPGA produces)
+
+[BiasFree-float  (DIAG: float backbone, NO bias = deployed math in FLOAT) mAP@0.5] 0.1262
+    small-vehicle  AP=0.1380  (gt=5680, det=74827)
+    large-vehicle  AP=0.2200  (gt=644, det=3847)
+    human          AP=0.0205  (gt=2336, det=17136)
+
+[W8-Afloat  (DIAG: int8 WEIGHTS, float acts, NO bias -- cost of weight quant) mAP@0.5] 0.1245
+    small-vehicle  AP=0.1351  (gt=5680, det=78442)
+    large-vehicle  AP=0.2157  (gt=644, det=3532)
+    human          AP=0.0228  (gt=2336, det=15560)
+
+[INT8-nowrap  (DIAG: full int8, NO bias, clamp<=127 -- the >127 wrap removed) mAP@0.5] 0.0973
+    small-vehicle  AP=0.1257  (gt=5680, det=81032)
+    large-vehicle  AP=0.1393  (gt=644, det=3483)
+    human          AP=0.0270  (gt=2336, det=14575)
+   read the bias-free ladder  BiasFree-float -> W8-Afloat -> INT8-nowrap -> INT8:
+     big drop at W8-Afloat      => WEIGHT quant is fatal       -> QAT
+     big drop at INT8-nowrap    => activation rounding/requant -> activation QAT
+     big drop INT8-nowrap->INT8 => the >127 SIGNED WRAP -> raise --calib_pct (99.99) or
+        lower --calib_denom (e.g. 100) for wrap headroom, NO retrain
+[INFO] wrote model/weights.bin (123888 B), model/biases.bin (1664 B), model/model_arch.h
+[INFO] wrote 4 test .bin (384x384x3 uint8 HWC) -> model/test_bins/
+
+[DONE] -> 'model/': weights.bin biases.bin model_arch.h model_int8.pt test_bins/
+(rail) joeld@e974e2104ed3:~/aerial-dataset/RoadVehiclesYOLODatasetPro$ python new_train.py --resume_fp32 model/model_biasfree_fp32.pt --calib_pct 99.99
+[INFO] device=cuda canvas=384 tile=64 grid=16 stride=4 feat_ch=64
+[INFO] train=21120 val=4000 (carved from train/)
+[INFO] class counts {'small-vehicle': 49202, 'large-vehicle': 5776, 'human': 15513}  weights=[0.53, 1.54, 0.94]
+[INFO] DetNet params=125,240  layers=8  head=8x64  crops/img=2
+[INFO] resume_fp32: loading FP32 weights from model/model_biasfree_fp32.pt (SKIP training)
+/home/joeld/aerial-dataset/RoadVehiclesYOLODatasetPro/new_train.py:1212: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  model.load_state_dict(torch.load(cfg["resume_fp32"], map_location=dev))
+[INFO] loaded FP32 model val_mAP=0.0000 (sanity check)
+
+[HW-CHECK] every layer vs the accelerator RTL (host bank limit = 16384 B/tensor):
+  L0: Cin=  3 Cout= 16 64x64->32x32 mac= 27 q=38916>>23 in=12288 out=16384 OK
+  L1: Cin= 16 Cout= 48 32x32->16x16 mac=144 q=54676>>22 in=16384 out=12288 OK
+  L2: Cin= 48 Cout= 56 16x16->16x16 mac=432 q=48410>>23 in=12288 out=14336 OK
+  L3: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=55662>>24 in=14336 out=14336 OK
+  L4: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=53226>>24 in=14336 out=14336 OK
+  L5: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=49923>>25 in=14336 out=14336 OK
+  L6: Cin= 56 Cout= 64 16x16->16x16 mac= 56 q=38795>>22 in=14336 out=16384 OK
+  L7: Cin= 64 Cout= 64 16x16->16x16 mac= 64 q=57940>>23 in=16384 out=16384 OK
+  ==> ALL CONSTRAINTS SATISFIED
+[INFO] evaluating mAP@0.5 on 400 val images (decode thr=0.01) ...
+
+[FP32 mAP@0.5] 0.0000
+    small-vehicle  AP=0.0000  (gt=5680, det=13542)
+    large-vehicle  AP=0.0000  (gt=644, det=1131)
+    human          AP=0.0000  (gt=2336, det=3124)
+
+[INT8 (pure PTQ) mAP@0.5] 0.0566
+    small-vehicle  AP=0.0815  (gt=5680, det=80656)
+    large-vehicle  AP=0.0732  (gt=644, det=4209)
+    human          AP=0.0150  (gt=2336, det=15653)
+   (INT8 is exactly what the FPGA produces)
+
+[BiasFree-float  (DIAG: float backbone, NO bias = deployed math in FLOAT) mAP@0.5] 0.1262
+    small-vehicle  AP=0.1380  (gt=5680, det=74827)
+    large-vehicle  AP=0.2200  (gt=644, det=3847)
+    human          AP=0.0205  (gt=2336, det=17136)
+
+[W8-Afloat  (DIAG: int8 WEIGHTS, float acts, NO bias -- cost of weight quant) mAP@0.5] 0.1245
+    small-vehicle  AP=0.1351  (gt=5680, det=78442)
+    large-vehicle  AP=0.2157  (gt=644, det=3532)
+    human          AP=0.0228  (gt=2336, det=15560)
+
+[INT8-nowrap  (DIAG: full int8, NO bias, clamp<=127 -- the >127 wrap removed) mAP@0.5] 0.1206
+    small-vehicle  AP=0.1367  (gt=5680, det=78056)
+    large-vehicle  AP=0.1999  (gt=644, det=4166)
+    human          AP=0.0253  (gt=2336, det=15004)
+   read the bias-free ladder  BiasFree-float -> W8-Afloat -> INT8-nowrap -> INT8:
+     big drop at W8-Afloat      => WEIGHT quant is fatal       -> QAT
+     big drop at INT8-nowrap    => activation rounding/requant -> activation QAT
+     big drop INT8-nowrap->INT8 => the >127 SIGNED WRAP -> raise --calib_pct (99.99) or
+        lower --calib_denom (e.g. 100) for wrap headroom, NO retrain
+[INFO] wrote model/weights.bin (123888 B), model/biases.bin (1664 B), model/model_arch.h
+[INFO] wrote 4 test .bin (384x384x3 uint8 HWC) -> model/test_bins/
+
+[DONE] -> 'model/': weights.bin biases.bin model_arch.h model_int8.pt test_bins/
+(rail) joeld@e974e2104ed3:~/aerial-dataset/RoadVehiclesYOLODatasetPro$ python new_train.py --resume_fp32 model/model_biasfree_fp32.pt --calib_pct 99.99 --calib_denom 110
+[INFO] device=cuda canvas=384 tile=64 grid=16 stride=4 feat_ch=64
+[INFO] train=21120 val=4000 (carved from train/)
+[INFO] class counts {'small-vehicle': 49202, 'large-vehicle': 5776, 'human': 15513}  weights=[0.53, 1.54, 0.94]
+[INFO] DetNet params=125,240  layers=8  head=8x64  crops/img=2
+[INFO] resume_fp32: loading FP32 weights from model/model_biasfree_fp32.pt (SKIP training)
+/home/joeld/aerial-dataset/RoadVehiclesYOLODatasetPro/new_train.py:1212: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  model.load_state_dict(torch.load(cfg["resume_fp32"], map_location=dev))
+[INFO] loaded FP32 model val_mAP=0.0000 (sanity check)
+
+[HW-CHECK] every layer vs the accelerator RTL (host bank limit = 16384 B/tensor):
+  L0: Cin=  3 Cout= 16 64x64->32x32 mac= 27 q=33707>>23 in=12288 out=16384 OK
+  L1: Cin= 16 Cout= 48 32x32->16x16 mac=144 q=54676>>22 in=16384 out=12288 OK
+  L2: Cin= 48 Cout= 56 16x16->16x16 mac=432 q=48410>>23 in=12288 out=14336 OK
+  L3: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=55662>>24 in=14336 out=14336 OK
+  L4: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=53226>>24 in=14336 out=14336 OK
+  L5: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=49923>>25 in=14336 out=14336 OK
+  L6: Cin= 56 Cout= 64 16x16->16x16 mac= 56 q=38795>>22 in=14336 out=16384 OK
+  L7: Cin= 64 Cout= 64 16x16->16x16 mac= 64 q=57940>>23 in=16384 out=16384 OK
+  ==> ALL CONSTRAINTS SATISFIED
+[INFO] evaluating mAP@0.5 on 400 val images (decode thr=0.01) ...
+
+[FP32 mAP@0.5] 0.0000
+    small-vehicle  AP=0.0000  (gt=5680, det=13542)
+    large-vehicle  AP=0.0000  (gt=644, det=1131)
+    human          AP=0.0000  (gt=2336, det=3124)
+
+[INT8 (pure PTQ) mAP@0.5] 0.0795
+    small-vehicle  AP=0.1064  (gt=5680, det=79281)
+    large-vehicle  AP=0.1161  (gt=644, det=4386)
+    human          AP=0.0160  (gt=2336, det=15236)
+   (INT8 is exactly what the FPGA produces)
+
+[BiasFree-float  (DIAG: float backbone, NO bias = deployed math in FLOAT) mAP@0.5] 0.1262
+    small-vehicle  AP=0.1380  (gt=5680, det=74827)
+    large-vehicle  AP=0.2200  (gt=644, det=3847)
+    human          AP=0.0205  (gt=2336, det=17136)
+
+[W8-Afloat  (DIAG: int8 WEIGHTS, float acts, NO bias -- cost of weight quant) mAP@0.5] 0.1245
+    small-vehicle  AP=0.1351  (gt=5680, det=78442)
+    large-vehicle  AP=0.2157  (gt=644, det=3532)
+    human          AP=0.0228  (gt=2336, det=15560)
+
+[INT8-nowrap  (DIAG: full int8, NO bias, clamp<=127 -- the >127 wrap removed) mAP@0.5] 0.1253
+    small-vehicle  AP=0.1355  (gt=5680, det=77896)
+    large-vehicle  AP=0.2155  (gt=644, det=4311)
+    human          AP=0.0249  (gt=2336, det=14914)
+   read the bias-free ladder  BiasFree-float -> W8-Afloat -> INT8-nowrap -> INT8:
+     big drop at W8-Afloat      => WEIGHT quant is fatal       -> QAT
+     big drop at INT8-nowrap    => activation rounding/requant -> activation QAT
+     big drop INT8-nowrap->INT8 => the >127 SIGNED WRAP -> raise --calib_pct (99.99) or
+        lower --calib_denom (e.g. 100) for wrap headroom, NO retrain
+[INFO] wrote model/weights.bin (123888 B), model/biases.bin (1664 B), model/model_arch.h
+[INFO] wrote 4 test .bin (384x384x3 uint8 HWC) -> model/test_bins/
+
+[DONE] -> 'model/': weights.bin biases.bin model_arch.h model_int8.pt test_bins/
+(rail) joeld@e974e2104ed3:~/aerial-dataset/RoadVehiclesYOLODatasetPro$ python new_train.py --resume_fp32 model/model_biasfree_fp32.pt --calib_pct 100
+[INFO] device=cuda canvas=384 tile=64 grid=16 stride=4 feat_ch=64
+[INFO] train=21120 val=4000 (carved from train/)
+[INFO] class counts {'small-vehicle': 49202, 'large-vehicle': 5776, 'human': 15513}  weights=[0.53, 1.54, 0.94]
+[INFO] DetNet params=125,240  layers=8  head=8x64  crops/img=2
+[INFO] resume_fp32: loading FP32 weights from model/model_biasfree_fp32.pt (SKIP training)
+/home/joeld/aerial-dataset/RoadVehiclesYOLODatasetPro/new_train.py:1212: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  model.load_state_dict(torch.load(cfg["resume_fp32"], map_location=dev))
+[INFO] loaded FP32 model val_mAP=0.0000 (sanity check)
+
+[HW-CHECK] every layer vs the accelerator RTL (host bank limit = 16384 B/tensor):
+  L0: Cin=  3 Cout= 16 64x64->32x32 mac= 27 q=49912>>24 in=12288 out=16384 OK
+  L1: Cin= 16 Cout= 48 32x32->16x16 mac=144 q=64144>>23 in=16384 out=12288 OK
+  L2: Cin= 48 Cout= 56 16x16->16x16 mac=432 q=55961>>23 in=12288 out=14336 OK
+  L3: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=36917>>23 in=14336 out=14336 OK
+  L4: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=45001>>24 in=14336 out=14336 OK
+  L5: Cin= 56 Cout= 56 16x16->16x16 mac=504 q=36265>>24 in=14336 out=14336 OK
+  L6: Cin= 56 Cout= 64 16x16->16x16 mac= 56 q=63695>>23 in=14336 out=16384 OK
+  L7: Cin= 64 Cout= 64 16x16->16x16 mac= 64 q=49214>>23 in=16384 out=16384 OK
+  ==> ALL CONSTRAINTS SATISFIED
+[INFO] evaluating mAP@0.5 on 400 val images (decode thr=0.01) ...
+
+[FP32 mAP@0.5] 0.0000
+    small-vehicle  AP=0.0000  (gt=5680, det=13542)
+    large-vehicle  AP=0.0000  (gt=644, det=1131)
+    human          AP=0.0000  (gt=2336, det=3124)
+
+[INT8 (pure PTQ) mAP@0.5] 0.1194
+    small-vehicle  AP=0.1293  (gt=5680, det=77302)
+    large-vehicle  AP=0.2108  (gt=644, det=5015)
+    human          AP=0.0181  (gt=2336, det=14826)
+   (INT8 is exactly what the FPGA produces)
+
+[BiasFree-float  (DIAG: float backbone, NO bias = deployed math in FLOAT) mAP@0.5] 0.1262
+    small-vehicle  AP=0.1380  (gt=5680, det=74827)
+    large-vehicle  AP=0.2200  (gt=644, det=3847)
+    human          AP=0.0205  (gt=2336, det=17136)
+
+[W8-Afloat  (DIAG: int8 WEIGHTS, float acts, NO bias -- cost of weight quant) mAP@0.5] 0.1245
+    small-vehicle  AP=0.1351  (gt=5680, det=78442)
+    large-vehicle  AP=0.2157  (gt=644, det=3532)
+    human          AP=0.0228  (gt=2336, det=15560)
+
+[INT8-nowrap  (DIAG: full int8, NO bias, clamp<=127 -- the >127 wrap removed) mAP@0.5] 0.1200
+    small-vehicle  AP=0.1297  (gt=5680, det=77251)
+    large-vehicle  AP=0.2114  (gt=644, det=5012)
+    human          AP=0.0188  (gt=2336, det=14810)
+   read the bias-free ladder  BiasFree-float -> W8-Afloat -> INT8-nowrap -> INT8:
+     big drop at W8-Afloat      => WEIGHT quant is fatal       -> QAT
+     big drop at INT8-nowrap    => activation rounding/requant -> activation QAT
+     big drop INT8-nowrap->INT8 => the >127 SIGNED WRAP -> raise --calib_pct (99.99) or
+        lower --calib_denom (e.g. 100) for wrap headroom, NO retrain
+[INFO] wrote model/weights.bin (123888 B), model/biases.bin (1664 B), model/model_arch.h
+[INFO] wrote 4 test .bin (384x384x3 uint8 HWC) -> model/test_bins/
+
+[DONE] -> 'model/': weights.bin biases.bin model_arch.h model_int8.pt test_bins/
+
